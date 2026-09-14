@@ -1,0 +1,50 @@
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpw}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-vote}
+      MYSQL_USER: ${MYSQL_USER:-vote}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-votepw}
+    volumes:
+      - mysql_data:/var/lib/mysql          # 재시작/재생성 후에도 투표 데이터 유지
+    ports:
+      - "3306:3306"                         # 테스트에서 DB 직접 조회용 (운영이면 제거)
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpw}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build: .
+    environment:
+      API_TOKEN: ${API_TOKEN:-test-token}
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: ${MYSQL_USER:-vote}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-votepw}
+      DB_NAME: ${MYSQL_DATABASE:-vote}
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # 선택: docker compose --profile tunnel up  →  http://localhost:4040 에서 public URL 확인
+  ngrok:
+    image: ngrok/ngrok:latest
+    profiles: ["tunnel"]
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    command: ["http", "app:8080"]
+    ports:
+      - "4040:4040"
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  mysql_data:

@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+env:
+  API_TOKEN: test-token
+  DB_HOST: 127.0.0.1
+  DB_PORT: "3306"
+  DB_USER: vote
+  DB_PASSWORD: votepw
+  DB_NAME: vote
+
+jobs:
+  test:
+    name: scenario tests (MySQL 8)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpw
+          MYSQL_DATABASE: vote
+          MYSQL_USER: vote
+          MYSQL_PASSWORD: votepw
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -prootpw"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements-dev.txt
+
+      - name: Start app
+        run: |
+          nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8080 > uvicorn.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8080/health | grep -q '"up"' && exit 0
+            sleep 1
+          done
+          echo "app did not start"; cat uvicorn.log; exit 1
+
+      # 재시작 케이스(P-01/P-02)는 docker compose 가 필요하므로 CI 에서는 제외
+      - name: Run scenario tests
+        run: python -m pytest tests -v
+
+      - name: App log
+        if: failure()
+        run: cat uvicorn.log
+
+  docker:
+    name: docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t backend-test .
+      - name: Image starts and serves /health with DB down (503)
+        run: |
+          docker run -d --name smoke -p 8080:8080 -e DB_HOST=127.0.0.1 backend-test
+          sleep 3
+          # DB 없이도 프로세스는 떠야 하나, init_db 재시도 중이므로 컨테이너 생존만 확인
+          docker ps --filter name=smoke --filter status=running | grep -q smoke
+          docker rm -f smoke

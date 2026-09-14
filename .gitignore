@@ -1,0 +1,9 @@
+# secrets
+.token_*
+.env
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/

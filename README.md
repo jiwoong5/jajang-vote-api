@@ -2,11 +2,11 @@
 
 FastAPI + MySQL 기반 투표 서비스. Docker Compose 로 실행, ngrok 으로 외부 노출.
 
-## Public URL
+## 제출 정보
 
-```
-https://refusing-foil-ungodly.ngrok-free.dev
-```
+- **소스코드:** https://github.com/jiwoong5/jajang-vote-api
+- **Public URL:** https://refusing-foil-ungodly.ngrok-free.dev
+- **CI:** GitHub Actions — MySQL 8 서비스 컨테이너 대상 시나리오 테스트 + Docker 빌드
 
 > ngrok 무료 플랜이라 터널을 재시작하면 URL 이 바뀝니다. 위 URL 은 제출 시점 기준입니다.
 
